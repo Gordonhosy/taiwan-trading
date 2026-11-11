@@ -34,9 +34,8 @@ def fetch_day(d, raw_dir, max_retries=3):
 
             # Validate that the page actually contains data for the requested date
             # (the site often returns latest data for old/missing dates)
-            date_str1 = d.replace('/', '')          # 20260302
-            date_str2 = f"{d[:4]}/{d[4:6]}/{d[6:]}" # 2026/03/02
-            if date_str1 not in text and date_str2 not in text:
+            date_str1 = d.replace('/', '')          # 20261111
+            if date_str1 not in text and d not in text:
                 print(f'  {d}: page does not contain the requested date (probably no data or fallback)')
                 return pd.DataFrame()
 

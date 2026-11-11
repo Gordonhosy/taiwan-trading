@@ -28,7 +28,7 @@ jobs:
 
       - name: Fetch recent TAIFEX data
         run: |
-          python scripts/download_historical_institutional.py --days 5
+          python scripts/download_historical_institutional.py --days 7
         env:
           # Add any env vars here if needed in the future
           PYTHONUNBUFFERED: "1"
