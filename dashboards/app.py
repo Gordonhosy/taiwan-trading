@@ -2,12 +2,6 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import plotly.express as px
-from datetime import datetime, timedelta
-import os
-import sys
-
-# Make sure we can import from scripts/ when deployed
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 st.set_page_config(page_title="TAIFEX Institutional Futures Explorer", layout="wide")
 
@@ -20,13 +14,6 @@ def load_data():
     return df
 
 df = load_data()
-
-# Support refreshing latest data in the current session (works on Streamlit Cloud)
-if "fresh_data" not in st.session_state:
-    st.session_state.fresh_data = pd.DataFrame()
-
-if not st.session_state.fresh_data.empty:
-    df = pd.concat([df, st.session_state.fresh_data], ignore_index=True)
 
 # English mappings
 institution_map = {
@@ -42,33 +29,6 @@ df["Institution"] = df["身份別"].map(institution_map).fillna(df["身份別"])
 
 # Sidebar filters
 st.sidebar.header("Filters")
-
-# Data freshness + refresh (especially useful on Streamlit Cloud)
-latest_date = df["日期"].max().strftime("%Y-%m-%d")
-st.sidebar.caption(f"Data through: {latest_date}")
-
-if st.sidebar.button("🔄 Check for newer data"):
-    try:
-        from scripts.download_historical_institutional import fetch_day
-        today = datetime.now()
-        found = False
-        for delta in range(10):
-            d = (today - timedelta(days=delta)).strftime("%Y/%m/%d")
-            new_df = fetch_day(d, "data/raw")
-            if not new_df.empty:
-                new_df["日期"] = pd.to_datetime(new_df["日期"].astype(str), format="%Y%m%d")
-                st.session_state.fresh_data = pd.concat(
-                    [st.session_state.fresh_data, new_df], ignore_index=True
-                )
-                st.cache_data.clear()
-                st.success(f"Loaded fresh data for {d}")
-                st.rerun()
-                found = True
-                break
-        if not found:
-            st.sidebar.info("No newer data found in the last 10 days.")
-    except Exception as e:
-        st.sidebar.error(f"Could not fetch latest: {str(e)[:100]}")
 
 # Date range
 date_min = df["日期"].min().date()
@@ -201,9 +161,9 @@ if filtered.empty:
 st.title("TAIFEX Institutional Futures Explorer")
 st.caption("Interactive analysis of institutional trading and open interest data from TAIFEX")
 
-# Show effective latest date (including any session refresh)
-effective_latest = df["日期"].max().strftime("%Y-%m-%d")
-st.caption(f"📅 Latest data: {effective_latest}")
+# Show current data range
+latest = df["日期"].max().strftime("%Y-%m-%d")
+st.caption(f"Data up to: {latest}")
 
 # Single unified chart
 st.subheader(chart_title)
