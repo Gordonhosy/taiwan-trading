@@ -3,7 +3,8 @@ import pandas as pd
 import sqlite3
 import plotly.express as px
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 st.set_page_config(page_title="TAIFEX Institutional Futures Explorer", layout="wide")
 
@@ -165,8 +166,12 @@ st.caption("Interactive analysis of institutional trading and open interest data
 
 # Show data freshness
 latest = df["日期"].max().strftime("%Y-%m-%d")
-db_mtime = datetime.fromtimestamp(os.path.getmtime("data/taifex.db")).strftime("%Y-%m-%d %H:%M")
-st.caption(f"Data up to: {latest} | Last updated: {db_mtime}")
+db_mtime = (
+    datetime.fromtimestamp(os.path.getmtime("data/taifex.db"), tz=timezone.utc)
+    .astimezone(ZoneInfo("Asia/Hong_Kong"))
+    .strftime("%Y-%m-%d %H:%M")
+)
+st.caption(f"Data up to: {latest} | Last updated: {db_mtime} HKT")
 
 # Single unified chart
 st.subheader(chart_title)

@@ -3,6 +3,8 @@ pandas
 plotly
 requests
 lxml
+tzdata  # for timezone support (HKT) on Streamlit Cloud
+
 # fastapi + uvicorn + jinja2 only needed if you want to keep the old showcase page
 # fastapi
 # uvicorn[standard]
