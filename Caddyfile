@@ -1,0 +1,16 @@
+:8080
+
+# Reverse proxy for the dashboard
+# /dashboard → Streamlit (port 8501)
+# Root and other paths redirect to /dashboard
+#
+# Accessed via ngrok on port 8080 for public access.
+
+handle /dashboard* {
+	reverse_proxy 127.0.0.1:8501
+}
+
+# Redirect everything else (including bare URL) to the dashboard
+handle {
+	redir /dashboard permanent
+}

@@ -1,0 +1,9 @@
+streamlit>=1.28
+pandas
+plotly
+requests
+lxml
+# fastapi + uvicorn + jinja2 only needed if you want to keep the old showcase page
+# fastapi
+# uvicorn[standard]
+# jinja2
