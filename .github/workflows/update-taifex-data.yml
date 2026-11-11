@@ -2,9 +2,9 @@ name: Update TAIFEX Data
 
 on:
   schedule:
-    # Runs daily at 15:05 Taiwan time (07:05 UTC)
-    - cron: '5 7 * * *'
-  workflow_dispatch:   # Allow manual trigger from GitHub UI
+    # Runs every weekday (Mon-Fri) at 15:05 Taiwan time (07:05 UTC)
+    - cron: '5 7 * * 1-5'
+  workflow_dispatch:   # Manual trigger still available anytime
 
 permissions:
   contents: write

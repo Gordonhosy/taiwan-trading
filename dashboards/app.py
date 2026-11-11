@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import plotly.express as px
+import os
+from datetime import datetime
 
 st.set_page_config(page_title="TAIFEX Institutional Futures Explorer", layout="wide")
 
@@ -161,9 +163,10 @@ if filtered.empty:
 st.title("TAIFEX Institutional Futures Explorer")
 st.caption("Interactive analysis of institutional trading and open interest data from TAIFEX")
 
-# Show current data range
+# Show data freshness
 latest = df["日期"].max().strftime("%Y-%m-%d")
-st.caption(f"Data up to: {latest}")
+db_mtime = datetime.fromtimestamp(os.path.getmtime("data/taifex.db")).strftime("%Y-%m-%d %H:%M")
+st.caption(f"Data up to: {latest} | Last updated: {db_mtime}")
 
 # Single unified chart
 st.subheader(chart_title)
