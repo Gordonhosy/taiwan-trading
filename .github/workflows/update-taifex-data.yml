@@ -1,10 +1,21 @@
 name: Update TAIFEX Data
 
 on:
+  # === Reliable way (recommended) ===
+  # Use an external cron service (cron-job.org etc.) to call the GitHub API
+  # and trigger this workflow at exact time. Much more reliable than schedule:.
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of recent trading days to fetch'
+        required: false
+        default: '7'
+
+  # === Fallback only (GitHub schedule is best-effort and can be hours late) ===
   schedule:
-    # Runs every weekday (Mon-Fri) at 15:05 Taiwan time (07:05 UTC)
-    - cron: '5 7 * * 1-5'
-  workflow_dispatch:   # Manual trigger still available anytime
+    - cron: '5 7 * * 1-5'    # ~15:05 TW
+    - cron: '5 11 * * 1-5'   # ~19:05 TW
+    - cron: '5 15 * * 1-5'   # ~23:05 TW
 
 permissions:
   contents: write
@@ -28,7 +39,8 @@ jobs:
 
       - name: Fetch recent TAIFEX data
         run: |
-          python scripts/download_historical_institutional.py --days 7
+          DAYS="${{ github.event.inputs.days || '7' }}"
+          python scripts/download_historical_institutional.py --days "$DAYS"
         env:
           # Add any env vars here if needed in the future
           PYTHONUNBUFFERED: "1"
@@ -38,7 +50,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add data/taifex.db
+          git add data/taifex.db data/last_update.txt
 
           # Only commit if there are actual changes
           if git diff --staged --quiet; then

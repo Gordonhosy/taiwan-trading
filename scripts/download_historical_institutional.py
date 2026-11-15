@@ -3,6 +3,7 @@ import time
 import random
 import argparse
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import requests
 import pandas as pd
 import sqlite3
@@ -66,7 +67,7 @@ def fetch_day(d, raw_dir, max_retries=3):
             if df.empty:
                 return df
 
-            df["日期"] = d.replace("/", "")
+            df["日期"] = int(d.replace("/", ""))
             num_cols = [c for c in df.columns if c not in ["序號", "商品名稱", "身份別", "日期"]]
             for c in num_cols:
                 df[c] = pd.to_numeric(df[c].astype(str).str.replace(",", "").str.strip(), errors="coerce")
@@ -87,13 +88,17 @@ def store_df(df, db_path):
     conn = sqlite3.connect(db_path)
     # lower and clean col names for consistency
     df.columns = [str(c).lower().strip().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_") for c in df.columns]
+    if "日期" in df.columns:
+        df["日期"] = pd.to_numeric(df["日期"], errors="coerce").astype("Int64")
     keys = ["日期", "商品名稱", "身份別"]
     try:
         exist = pd.read_sql_query(f"SELECT {','.join([k for k in keys if k in df.columns])} FROM institutional_futures", conn)
+        if not exist.empty and "日期" in exist.columns:
+            exist["日期"] = pd.to_numeric(exist["日期"], errors="coerce").astype("Int64")
         exist_keys = set(tuple(row) for row in exist.values) if not exist.empty else set()
     except:
         exist_keys = set()
-    df["_k"] = df.apply(lambda r: tuple(str(r.get(k, "")) for k in keys if k in df.columns), axis=1)
+    df["_k"] = df.apply(lambda r: tuple(r.get(k) for k in keys if k in df.columns), axis=1)
     new = df[~df["_k"].isin(exist_keys)].drop(columns=["_k"])
     ins = len(new)
     if ins > 0:
@@ -129,6 +134,17 @@ def main():
             print(f"{d} error: {e}")
         time.sleep(random.uniform(4.0, 7.0))  # More polite delay with jitter
     print(f"Done: {ok}/{len(days)} days with data, {total} total rows inserted.")
+
+    # Record the actual fetch time (in Taiwan time) so the dashboard can show
+    # the real refresh time instead of filesystem mtime (which is pull time).
+    try:
+        now_tw = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d %H:%M")
+        os.makedirs("data", exist_ok=True)
+        with open("data/last_update.txt", "w", encoding="utf-8") as f:
+            f.write(now_tw)
+        print(f"Recorded last_update: {now_tw} (Asia/Taipei)")
+    except Exception as e:
+        print(f"Warning: could not write last_update.txt: {e}")
 
 if __name__ == "__main__":
     main()
