@@ -168,12 +168,17 @@ st.caption("Interactive analysis of institutional trading and open interest data
 
 # Show data freshness
 latest = df["日期"].max().strftime("%Y-%m-%d")
-db_mtime = (
-    datetime.fromtimestamp(os.path.getmtime("data/taifex.db"), tz=timezone.utc)
-    .astimezone(ZoneInfo("Asia/Hong_Kong"))
-    .strftime("%Y-%m-%d %H:%M")
-)
-st.caption(f"Data up to: {latest} | Last updated: {db_mtime} HKT")
+try:
+    with open("data/last_update.txt", encoding="utf-8") as f:
+        last_refreshed = f.read().strip()
+except Exception:
+    # Fallback to file mtime (only happens before first scheduled update)
+    last_refreshed = (
+        datetime.fromtimestamp(os.path.getmtime("data/taifex.db"), tz=timezone.utc)
+        .astimezone(ZoneInfo("Asia/Hong_Kong"))
+        .strftime("%Y-%m-%d %H:%M")
+    )
+st.caption(f"Data up to: {latest} | Last refreshed: {last_refreshed} HKT")
 
 # Single unified chart
 st.subheader(chart_title)
