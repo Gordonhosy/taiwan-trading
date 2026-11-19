@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+import duckdb
 import plotly.express as px
 import os
 from datetime import datetime, timezone
@@ -12,10 +12,29 @@ st.page_link("pages/0_Main_Page.py", label="← Back to Home", icon="🏠")
 
 @st.cache_data(ttl=300)
 def load_data():
-    conn = sqlite3.connect("data/taifex.db")
-    df = pd.read_sql("SELECT * FROM institutional_futures", conn)
-    conn.close()
-    df["日期"] = pd.to_datetime(df["日期"].astype(str), format="%Y%m%d")
+    con = duckdb.connect()
+    con.execute("INSTALL httpfs; LOAD httpfs;")
+    con.execute("INSTALL aws; LOAD aws;")
+
+    # Configure these for your environment
+    S3_BUCKET = os.environ.get("TAIFEX_S3_BUCKET", "taifex-data")
+    S3_REGION = os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2")
+    s3_path = f"s3://{S3_BUCKET}/taifex/institutional_futures/*/*.parquet"
+    local_path = "data/parquet/institutional_futures/*/*.parquet"
+
+    try:
+        con.execute(f"SET s3_region='{S3_REGION}';")
+        df = con.execute(f"""
+            SELECT * FROM read_parquet('{s3_path}', hive_partitioning = true)
+        """).df()
+    except Exception:
+        df = con.execute(f"""
+            SELECT * FROM read_parquet('{local_path}', hive_partitioning = true)
+        """).df()
+
+    if "日期" in df.columns:
+        df["日期"] = pd.to_datetime(df["日期"].astype(str), format="%Y%m%d")
+
     return df
 
 df = load_data()

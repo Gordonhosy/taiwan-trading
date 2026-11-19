@@ -18,7 +18,8 @@ on:
     - cron: '5 15 * * 1-5'   # ~23:05 TW
 
 permissions:
-  contents: write
+  contents: read   # no longer need to push to git for data
+  id-token: write  # for OIDC with AWS (recommended)
 
 jobs:
   update-data:
@@ -45,23 +46,28 @@ jobs:
           DAYS="${{ github.event.inputs.days || '7' }}"
           python scripts/download_historical_institutional.py --days "$DAYS"
         env:
-          # Add any env vars here if needed in the future
           PYTHONUNBUFFERED: "1"
 
-      - name: Commit and push updated database (if changed)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Option A (recommended for production): OIDC
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+
+          # Option B (quick start): store long-lived keys as repo secrets
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+
+      - name: Upload Parquet files to S3
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Upload the partitioned Parquet data
+          aws s3 sync data/parquet/ s3://${{ secrets.S3_BUCKET }}/taifex/ --delete --exact-timestamps
 
-          git add data/taifex.db data/last_update.txt
-
-          # Only commit if there are actual changes
-          if git diff --staged --quiet; then
-            echo "No changes to data/taifex.db"
-          else
-            git commit -m "chore(data): update TAIFEX institutional data [skip ci]"
-            # Handle case where remote has moved ahead (common with multiple triggers)
-            git fetch origin
-            git rebase origin/main || echo "Rebase skipped or not needed"
-            git push origin HEAD:main
+          # Also upload last update marker (optional but convenient)
+          if [ -f data/last_update.txt ]; then
+            aws s3 cp data/last_update.txt s3://${{ secrets.S3_BUCKET }}/taifex/last_update.txt
           fi
+
+          echo "Data uploaded to s3://${{ secrets.S3_BUCKET }}/taifex/"

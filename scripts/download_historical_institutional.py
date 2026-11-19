@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import requests
 import pandas as pd
-import sqlite3
 from io import StringIO
 
 def get_trading_days(start, end):
@@ -82,30 +81,36 @@ def fetch_day(d, raw_dir, max_retries=3):
             time.sleep(2 ** attempt + random.uniform(0.5, 1.5))
     return pd.DataFrame()
 
-def store_df(df, db_path):
+def store_to_parquet(df, base_path="data/parquet"):
+    """Write daily Parquet files using Hive partitioning (date=YYYYMMDD).
+    This is ideal for S3 + DuckDB.
+    """
     if df.empty:
         return 0
-    conn = sqlite3.connect(db_path)
-    # lower and clean col names for consistency
-    df.columns = [str(c).lower().strip().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_") for c in df.columns]
-    if "日期" in df.columns:
-        df["日期"] = pd.to_numeric(df["日期"], errors="coerce").astype("Int64")
-    keys = ["日期", "商品名稱", "身份別"]
-    try:
-        exist = pd.read_sql_query(f"SELECT {','.join([k for k in keys if k in df.columns])} FROM institutional_futures", conn)
-        if not exist.empty and "日期" in exist.columns:
-            exist["日期"] = pd.to_numeric(exist["日期"], errors="coerce").astype("Int64")
-        exist_keys = set(tuple(row) for row in exist.values) if not exist.empty else set()
-    except:
-        exist_keys = set()
-    df["_k"] = df.apply(lambda r: tuple(r.get(k) for k in keys if k in df.columns), axis=1)
-    new = df[~df["_k"].isin(exist_keys)].drop(columns=["_k"])
-    ins = len(new)
-    if ins > 0:
-        new.to_sql("institutional_futures", conn, if_exists="append", index=False)
-    conn.commit()
-    conn.close()
-    return ins
+
+    # Normalize column names
+    df.columns = [
+        str(c).lower().strip().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+        for c in df.columns
+    ]
+
+    if "日期" not in df.columns:
+        return 0
+
+    df = df.copy()
+    df["日期"] = df["日期"].astype(str).str.zfill(8)
+
+    total_written = 0
+    for date_val in sorted(df["日期"].unique()):
+        day_df = df[df["日期"] == date_val].copy()
+        partition_dir = os.path.join(base_path, "institutional_futures", f"date={date_val}")
+        os.makedirs(partition_dir, exist_ok=True)
+        out_path = os.path.join(partition_dir, f"{date_val}.parquet")
+        day_df.to_parquet(out_path, index=False, compression="snappy")
+        print(f"  Wrote {len(day_df)} rows to {out_path}")
+        total_written += len(day_df)
+
+    return total_written
 
 def main():
     p = argparse.ArgumentParser()
@@ -125,15 +130,15 @@ def main():
     for d in days:
         try:
             df = fetch_day(d, "data/raw")
-            ins = store_df(df, "data/taifex.db")
-            total += ins
+            written = store_to_parquet(df)
+            total += written
             if not df.empty:
                 ok += 1
-            print(f"{d}: {ins} new rows inserted")
+            print(f"{d}: {written} rows written to Parquet")
         except Exception as e:
             print(f"{d} error: {e}")
         time.sleep(random.uniform(4.0, 7.0))  # More polite delay with jitter
-    print(f"Done: {ok}/{len(days)} days with data, {total} total rows inserted.")
+    print(f"Done: {ok}/{len(days)} days with data, {total} total rows written to Parquet.")
 
     # Record the actual fetch time (in Taiwan time) so the dashboard can show
     # the real refresh time instead of filesystem mtime (which is pull time).
