@@ -71,8 +71,9 @@ df["Institution"] = df["身份別"].map(institution_map).fillna(df["身份別"])
 st.sidebar.header("Filters")
 
 # Date range
-date_min = df["日期"].min().date()
-date_max = df["日期"].max().date()
+valid_dates = df["日期"].dropna()
+date_min = valid_dates.min().date()
+date_max = valid_dates.max().date()
 
 if "date_range" not in st.session_state:
     default_start = max(date_min, date_max - pd.Timedelta(days=30))
