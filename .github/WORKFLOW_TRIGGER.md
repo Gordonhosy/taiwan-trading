@@ -18,10 +18,10 @@ The reliable way is to trigger this workflow via the GitHub API from an external
 
 3. Create a new Cron Job with these settings:
 
-   **URL:**
-   ```
-   https://api.github.com/repos/<YOUR_GITHUB_USERNAME>/analytics-platform/actions/workflows/update-taifex-data.yml/dispatches
-   ```
+    **URL:**
+    ```
+    https://api.github.com/repos/Gordonhosy/taiwan-trading/actions/workflows/update-taifex-data.yml/dispatches
+    ```
 
    **Method:** POST
 

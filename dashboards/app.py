@@ -14,25 +14,36 @@ def load_data():
     con.execute("INSTALL httpfs; LOAD httpfs;")
     con.execute("INSTALL aws; LOAD aws;")
 
-    S3_BUCKET = os.environ.get("TAIFEX_S3_BUCKET", "taifex-data")
-    S3_REGION = os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2")
-    s3_path = f"s3://{S3_BUCKET}/taifex/institutional_futures/*/*.parquet"
+    S3_BUCKET = st.secrets.get("TAIFEX_S3_BUCKET", os.environ.get("TAIFEX_S3_BUCKET", ""))
+    S3_REGION = st.secrets.get("TAIFEX_S3_REGION", os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2"))
+
+    if "AWS_ACCESS_KEY_ID" in st.secrets:
+        con.execute(f"SET s3_access_key_id = '{st.secrets.AWS_ACCESS_KEY_ID}';")
+        con.execute(f"SET s3_secret_access_key = '{st.secrets.AWS_SECRET_ACCESS_KEY}';")
+    con.execute(f"SET s3_region = '{S3_REGION}';")
+
     local_path = "data/parquet/institutional_futures/*/*.parquet"
 
+    if S3_BUCKET:
+        s3_path = f"s3://{S3_BUCKET}/taifex/institutional_futures/*/*.parquet"
+        try:
+            df = con.execute(f"""
+                SELECT * FROM read_parquet('{s3_path}', hive_partitioning = true)
+            """).df()
+            return df
+        except Exception as e:
+            st.error(f"Failed to load data from S3: {e}")
+            st.info("Configure TAIFEX_S3_BUCKET and AWS credentials in Streamlit secrets.")
+            st.stop()
+
     try:
-        con.execute(f"SET s3_region='{S3_REGION}';")
-        df = con.execute(f"""
-            SELECT * FROM read_parquet('{s3_path}', hive_partitioning = true)
-        """).df()
-    except Exception:
         df = con.execute(f"""
             SELECT * FROM read_parquet('{local_path}', hive_partitioning = true)
         """).df()
-
-    if "日期" in df.columns:
-        df["日期"] = pd.to_datetime(df["日期"].astype(str), format="%Y%m%d")
-
-    return df
+        return df
+    except Exception:
+        st.error("No data available. Please configure S3 or ensure local Parquet files exist.")
+        st.stop()
 
 df = load_data()
 

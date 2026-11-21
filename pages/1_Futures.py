@@ -51,6 +51,9 @@ def load_data():
         st.stop()
 
 df = load_data()
+if df.empty:
+    st.error("No data available.")
+    st.stop()
 
 # English mappings
 institution_map = {
