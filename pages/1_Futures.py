@@ -16,26 +16,39 @@ def load_data():
     con.execute("INSTALL httpfs; LOAD httpfs;")
     con.execute("INSTALL aws; LOAD aws;")
 
-    # Configure these for your environment
-    S3_BUCKET = os.environ.get("TAIFEX_S3_BUCKET", "taifex-data")
-    S3_REGION = os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2")
-    s3_path = f"s3://{S3_BUCKET}/taifex/institutional_futures/*/*.parquet"
+    # Get config from Streamlit secrets (Cloud) or env vars (local)
+    S3_BUCKET = st.secrets.get("TAIFEX_S3_BUCKET", os.environ.get("TAIFEX_S3_BUCKET", ""))
+    S3_REGION = st.secrets.get("TAIFEX_S3_REGION", os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2"))
+
+    # Configure credentials if provided via secrets
+    if "AWS_ACCESS_KEY_ID" in st.secrets:
+        con.execute(f"SET s3_access_key_id = '{st.secrets.AWS_ACCESS_KEY_ID}';")
+        con.execute(f"SET s3_secret_access_key = '{st.secrets.AWS_SECRET_ACCESS_KEY}';")
+    con.execute(f"SET s3_region = '{S3_REGION}';")
+
     local_path = "data/parquet/institutional_futures/*/*.parquet"
 
+    if S3_BUCKET:
+        s3_path = f"s3://{S3_BUCKET}/taifex/institutional_futures/*/*.parquet"
+        try:
+            df = con.execute(f"""
+                SELECT * FROM read_parquet('{s3_path}', hive_partitioning = true)
+            """).df()
+            return df
+        except Exception as e:
+            st.error(f"Failed to load data from S3: {e}")
+            st.info("Make sure TAIFEX_S3_BUCKET and AWS credentials are set in Streamlit secrets (or env vars locally).")
+            st.stop()
+
+    # Local fallback (only works when running locally with parquet files)
     try:
-        con.execute(f"SET s3_region='{S3_REGION}';")
-        df = con.execute(f"""
-            SELECT * FROM read_parquet('{s3_path}', hive_partitioning = true)
-        """).df()
-    except Exception:
         df = con.execute(f"""
             SELECT * FROM read_parquet('{local_path}', hive_partitioning = true)
         """).df()
-
-    if "日期" in df.columns:
-        df["日期"] = pd.to_datetime(df["日期"].astype(str), format="%Y%m%d")
-
-    return df
+        return df
+    except Exception:
+        st.error("No data available. Please configure S3 or ensure local Parquet files exist.")
+        st.stop()
 
 df = load_data()
 
@@ -57,16 +70,32 @@ st.sidebar.header("Filters")
 # Date range
 date_min = df["日期"].min().date()
 date_max = df["日期"].max().date()
+
+if "date_range" not in st.session_state:
+    default_start = max(date_min, date_max - pd.Timedelta(days=30))
+    st.session_state.date_range = (default_start, date_max)
+
+col1, col2 = st.sidebar.columns([1, 1])
+presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "3Y": 1095, "5Y": 1825}
+for i, (label, days) in enumerate(presets.items()):
+    if (i % 2 == 0 and col1.button(label)) or (i % 2 == 1 and col2.button(label)):
+        new_start = max(date_min, date_max - pd.Timedelta(days=days))
+        st.session_state.date_range = (new_start, date_max)
+        st.rerun()
+
 date_range = st.sidebar.date_input(
     "Date Range",
-    value=(date_min, date_max),
+    value=st.session_state.date_range,
     min_value=date_min,
-    max_value=date_max
+    max_value=date_max,
+    key="date_picker"
 )
 if isinstance(date_range, tuple):
+    st.session_state.date_range = date_range
     start_d, end_d = date_range
 else:
     start_d = end_d = date_range
+    st.session_state.date_range = (start_d, end_d)
 
 # Date-filtered contracts for selector
 date_mask = (df["日期"].dt.date >= start_d) & (df["日期"].dt.date <= end_d)
