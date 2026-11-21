@@ -17,13 +17,15 @@ def load_data():
     con.execute("INSTALL aws; LOAD aws;")
 
     # Get config from Streamlit secrets (Cloud) or env vars (local)
-    S3_BUCKET = st.secrets.get("TAIFEX_S3_BUCKET", os.environ.get("TAIFEX_S3_BUCKET", ""))
-    S3_REGION = st.secrets.get("TAIFEX_S3_REGION", os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2"))
-
-    # Configure credentials if provided via secrets
-    if "AWS_ACCESS_KEY_ID" in st.secrets:
-        con.execute(f"SET s3_access_key_id = '{st.secrets.AWS_ACCESS_KEY_ID}';")
-        con.execute(f"SET s3_secret_access_key = '{st.secrets.AWS_SECRET_ACCESS_KEY}';")
+    try:
+        S3_BUCKET = st.secrets.get("TAIFEX_S3_BUCKET", os.environ.get("TAIFEX_S3_BUCKET", ""))
+        S3_REGION = st.secrets.get("TAIFEX_S3_REGION", os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2"))
+        if "AWS_ACCESS_KEY_ID" in st.secrets:
+            con.execute(f"SET s3_access_key_id = '{st.secrets.AWS_ACCESS_KEY_ID}';")
+            con.execute(f"SET s3_secret_access_key = '{st.secrets.AWS_SECRET_ACCESS_KEY}';")
+    except Exception:
+        S3_BUCKET = os.environ.get("TAIFEX_S3_BUCKET", "")
+        S3_REGION = os.environ.get("TAIFEX_S3_REGION", "ap-southeast-2")
     con.execute(f"SET s3_region = '{S3_REGION}';")
 
     local_path = "data/parquet/institutional_futures/*/*.parquet"
@@ -71,7 +73,11 @@ df["Institution"] = df["身份別"].map(institution_map).fillna(df["身份別"])
 st.sidebar.header("Filters")
 
 # Date range
+df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
 valid_dates = df["日期"].dropna()
+if valid_dates.empty:
+    st.error("No valid dates in data.")
+    st.stop()
 date_min = valid_dates.min().date()
 date_max = valid_dates.max().date()
 
@@ -79,10 +85,24 @@ if "date_range" not in st.session_state:
     default_start = max(date_min, date_max - pd.Timedelta(days=30))
     st.session_state.date_range = (default_start, date_max)
 
-col1, col2 = st.sidebar.columns([1, 1])
+st.sidebar.markdown("""
+<style>
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.2rem !important;
+}
+div[data-testid="stHorizontalBlock"] button {
+    padding: 0.15rem 0.35rem !important;
+    font-size: 0.75rem !important;
+    min-height: 1.6rem !important;
+    width: 100% !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.sidebar.columns(7, gap="small")
 presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "3Y": 1095, "5Y": 1825}
 for i, (label, days) in enumerate(presets.items()):
-    if (i % 2 == 0 and col1.button(label)) or (i % 2 == 1 and col2.button(label)):
+    if cols[i].button(label, key=f"preset_{label}"):
         new_start = max(date_min, date_max - pd.Timedelta(days=days))
         st.session_state.date_range = (new_start, date_max)
         st.rerun()
@@ -250,14 +270,5 @@ fig = px.line(
 )
 fig.update_traces(connectgaps=True)
 st.plotly_chart(fig, use_container_width=True)
-
-# Download
-csv = filtered.to_csv(index=False).encode("utf-8")
-st.download_button(
-    "Download filtered CSV",
-    csv,
-    "taifex_filtered.csv",
-    "text/csv"
-)
 
 st.caption("Data source: Taiwan Futures Exchange (TAIFEX) - Institutional Traders Details of Futures Contracts")
