@@ -99,8 +99,8 @@ div[data-testid="stHorizontalBlock"] button {
 </style>
 """, unsafe_allow_html=True)
 
-cols = st.sidebar.columns(7, gap="small")
-presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "3Y": 1095, "5Y": 1825}
+cols = st.sidebar.columns(5, gap="small")
+presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365}
 for i, (label, days) in enumerate(presets.items()):
     if cols[i].button(label, key=f"preset_{label}"):
         new_start = max(date_min, date_max - pd.Timedelta(days=days))
@@ -111,8 +111,7 @@ date_range = st.sidebar.date_input(
     "Date Range",
     value=st.session_state.date_range,
     min_value=date_min,
-    max_value=date_max,
-    key="date_picker"
+    max_value=date_max
 )
 if isinstance(date_range, tuple):
     st.session_state.date_range = date_range
