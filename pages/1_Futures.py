@@ -99,26 +99,26 @@ div[data-testid="stHorizontalBlock"] button {
 </style>
 """, unsafe_allow_html=True)
 
-cols = st.sidebar.columns(5, gap="small")
-presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365}
-for i, (label, days) in enumerate(presets.items()):
-    if cols[i].button(label, key=f"preset_{label}"):
-        new_start = max(date_min, date_max - pd.Timedelta(days=days))
-        st.session_state.date_range = (new_start, date_max)
-        st.rerun()
+with st.sidebar.form("date_form"):
+    cols = st.columns(5, gap="small")
+    presets = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365}
+    for i, (label, days) in enumerate(presets.items()):
+        if cols[i].form_submit_button(label):
+            new_start = max(date_min, date_max - pd.Timedelta(days=days))
+            st.session_state.date_range = (new_start, date_max)
 
-date_range = st.sidebar.date_input(
-    "Date Range",
-    value=st.session_state.date_range,
-    min_value=date_min,
-    max_value=date_max
-)
-if isinstance(date_range, tuple):
-    st.session_state.date_range = date_range
-    start_d, end_d = date_range
-else:
-    start_d = end_d = date_range
-    st.session_state.date_range = (start_d, end_d)
+    date_range = st.date_input(
+        "Date Range",
+        value=st.session_state.date_range,
+        min_value=date_min,
+        max_value=date_max
+    )
+    submitted = st.form_submit_button("Apply")
+    if submitted:
+        if isinstance(date_range, tuple) and len(date_range) == 2:
+            st.session_state.date_range = date_range
+        else:
+            st.session_state.date_range = (date_range, date_range)
 
 # Date-filtered contracts for selector
 date_mask = (df["日期"].dt.date >= start_d) & (df["日期"].dt.date <= end_d)
