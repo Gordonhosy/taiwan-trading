@@ -121,6 +121,7 @@ with st.sidebar.form("date_form"):
             st.session_state.date_range = (date_range, date_range)
 
 # Date-filtered contracts for selector
+start_d, end_d = st.session_state.date_range
 date_mask = (df["日期"].dt.date >= start_d) & (df["日期"].dt.date <= end_d)
 existing_contracts = set(df.loc[date_mask, "商品名稱"].unique())
 
