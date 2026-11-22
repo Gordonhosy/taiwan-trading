@@ -70,7 +70,7 @@ df = df[df["身份別"] != "期貨合計"]
 df["Institution"] = df["身份別"].map(institution_map).fillna(df["身份別"])
 
 # Sidebar filters
-st.sidebar.header("Filters")
+st.sidebar.header("Dates")
 
 # Date range
 df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
@@ -153,16 +153,33 @@ official_order = [
     "期貨合計",
 ]
 
+ticker_map = {
+    "臺股期貨": "TX",
+    "電子期貨": "TE",
+    "金融期貨": "TF",
+    "小型臺指期貨": "MTX",
+    "微型臺指期貨": "MXF",
+    "小型電子期貨": "MTE",
+    "小型金融期貨": "MTF",
+}
+
 # Preserve website order, only include contracts that exist in current data
-available_contracts = [c for c in official_order if c in existing_contracts]
+available_contracts = []
+contract_display_map = {}
+for c in official_order:
+    if c in existing_contracts:
+        ticker = ticker_map.get(c, "")
+        display_name = f"{c} ({ticker})" if ticker else c
+        available_contracts.append(display_name)
+        contract_display_map[display_name] = c
 
 # If any contracts exist that are not in the official list, append them at the end
 extra = [c for c in sorted(existing_contracts) if c not in official_order]
 available_contracts.extend(extra)
+for e in extra:
+    contract_display_map[e] = e
 
 # Single contract selector (one at a time)
-st.sidebar.markdown("**Contract**")
-
 if "selected_contract" not in st.session_state:
     st.session_state.selected_contract = "臺股期貨" if "臺股期貨" in available_contracts else (available_contracts[0] if available_contracts else None)
 
@@ -170,7 +187,7 @@ if st.session_state.selected_contract not in available_contracts and available_c
     st.session_state.selected_contract = available_contracts[0]
 
 selected_contract = st.sidebar.selectbox(
-    "Select contract",
+    "Contract",
     available_contracts,
     index=available_contracts.index(st.session_state.selected_contract) if st.session_state.selected_contract in available_contracts else 0,
     key="contract_selectbox"
@@ -180,6 +197,7 @@ st.session_state.selected_contract = selected_contract
 
 # For compatibility with existing filters (list of one)
 selected_contracts = [selected_contract] if selected_contract else []
+selected_contracts = [contract_display_map.get(c, c) for c in selected_contracts]
 
 # Institutions
 all_institutions = sorted(df["Institution"].unique())
@@ -196,7 +214,7 @@ measure = st.sidebar.selectbox(
 )
 
 category = st.sidebar.selectbox(
-    "Category",
+    "Value",
     ["Open Interest", "Trading volume"]
 )
 
@@ -234,8 +252,7 @@ if filtered.empty:
     st.stop()
 
 # Main title
-st.title("TAIFEX Institutional Futures Explorer")
-st.caption("Interactive analysis of institutional trading and open interest data from TAIFEX")
+st.title("Taifex Futures")
 
 # Show data freshness
 latest = df["日期"].max().strftime("%Y-%m-%d")
@@ -252,7 +269,6 @@ except Exception:
 st.caption(f"Data up to: {latest} | Last refreshed: {last_refreshed} HKT")
 
 # Single unified chart
-st.subheader(chart_title)
 fig = px.line(
     filtered,
     x="日期",
@@ -270,4 +286,4 @@ fig = px.line(
 fig.update_traces(connectgaps=True)
 st.plotly_chart(fig, use_container_width=True)
 
-st.caption("Data source: Taiwan Futures Exchange (TAIFEX) - Institutional Traders Details of Futures Contracts")
+st.caption("Data source: https://www.taifex.com.tw/cht/3/futContractsDate")
