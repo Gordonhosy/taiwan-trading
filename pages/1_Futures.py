@@ -91,7 +91,7 @@ div[data-testid="stHorizontalBlock"] {
     gap: 0.2rem !important;
 }
 div[data-testid="stHorizontalBlock"] button {
-    padding: 0.15rem 0.35rem !important;
+    padding: 0.15rem 0.525rem !important;
     font-size: 0.75rem !important;
     min-height: 1.6rem !important;
     width: 100% !important;
