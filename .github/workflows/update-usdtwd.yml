@@ -1,0 +1,32 @@
+name: Update USDTWD Daily
+
+on:
+  workflow_dispatch:
+  # Use external cron service (cron-job.org etc.) to call GitHub API and trigger at 09:05 TW
+  # GitHub schedule is best-effort only and not reliable for exact time
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  update-usdtwd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt yfinance
+      - run: python scripts/update_usdtwd.py
+        env:
+          TAIFEX_S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          TAIFEX_S3_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+      - run: |
+          aws s3 sync data/usdtwd/ s3://${{ secrets.S3_BUCKET }}/usdtwd/ --exact-timestamps
+          aws s3 cp data/usdtwd/last_update.txt s3://${{ secrets.S3_BUCKET }}/usdtwd/last_update.txt
