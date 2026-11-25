@@ -24,6 +24,13 @@
 - UI is clean with minimal labels and compact date buttons
 - Live updates when selecting full date range
 
+## USDTWD Sub-project (2026-11-25)
+- Created utils/s3.py + utils/dates.py for reuse
+- One-off + daily updater scripts (yfinance + S3)
+- New workflow .github/workflows/update-usdtwd.yml (16:05 TW cron)
+- Added pages/2_USDTWD.py with identical UX
+- Updated navigation in app.py + 0_Main_Page.py
+
 ## Known Issues / Next Steps
 - None currently reported
 
