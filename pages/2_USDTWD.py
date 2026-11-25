@@ -23,25 +23,25 @@ div[data-testid="stHorizontalBlock"] button {
 </style>
 """, unsafe_allow_html=True)
 
-if "date_range" not in st.session_state:
-    st.session_state.date_range = default_range()
+if "usdtwd_date_range" not in st.session_state:
+    st.session_state.usdtwd_date_range = default_range()
 
 cols = st.sidebar.columns(5, gap="small")
 for i, (label, days) in enumerate(PRESETS.items()):
     if cols[i].button(label, key=f"usdtwd_{label}"):
         end = date.today()
         start = end - pd.Timedelta(days=days)
-        st.session_state.date_range = (start, end)
+        st.session_state.usdtwd_date_range = (start, end)
         st.rerun()
 
-date_range = st.sidebar.date_input("Date Range", value=st.session_state.date_range)
+date_range = st.sidebar.date_input("Date Range", value=st.session_state.usdtwd_date_range)
 if isinstance(date_range, tuple) and len(date_range) == 2:
-    st.session_state.date_range = date_range
+    st.session_state.usdtwd_date_range = date_range
 
 df = load_parquet_from_s3_or_local("usdtwd/daily/2024/01", "data/usdtwd/daily/2024/01", "TAIFEX_S3_BUCKET", "TAIFEX_S3_REGION")
 df["date"] = pd.to_datetime(df["date"]).dt.date
 
-start_d, end_d = st.session_state.date_range
+start_d, end_d = st.session_state.usdtwd_date_range
 mask = (df["date"] >= start_d) & (df["date"] <= end_d)
 filtered = df.loc[mask]
 
@@ -53,5 +53,5 @@ except:
     last_refreshed = "N/A"
 st.caption(f"Data up to: {latest} | Last refreshed: {last_refreshed} HKT")
 
-fig = px.line(filtered, x="date", y="close", markers=True, title="USDTWD Daily Close")
+fig = px.line(filtered, x="date", y="close", markers=True, title="USDTWD Daily Open", labels={"close": "Open"})
 st.plotly_chart(fig, use_container_width=True)
