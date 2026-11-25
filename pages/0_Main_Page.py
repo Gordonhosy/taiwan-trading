@@ -21,5 +21,15 @@ st.page_link(
 
 st.divider()
 
+# USDTWD Dashboard
+st.page_link(
+    "pages/2_USDTWD.py",
+    label="**USDTWD Spot FX**",
+    icon="💱",
+    help="Daily close price of USD/TWD from 2024"
+)
+
+st.divider()
+
 st.info("More dashboards will be added in the future.")
 st.caption("Data source: Taiwan Futures Exchange (TAIFEX)")
