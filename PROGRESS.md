@@ -31,9 +31,15 @@
 - Added pages/2_USDTWD.py with identical UX
 - Updated navigation in app.py + 0_Main_Page.py
 
+## Latest fixes (USDTWD)
+- Decoupled date_range session_state between Futures and USDTWD pages
+- Changed chart title + y-axis to "Open" (data column kept as close)
+- Reverted to daily Open price (full history supported)
+- Workflow changed to dispatch-only (external cron at 09:05 TW)
+
 ## Known Issues / Next Steps
 - None currently reported
 
 ## Notes
 - Always run `streamlit run app.py` for local testing (not individual pages)
-- Use `git add -A && git commit -m "update" && git push` after changes
+- Use separate git add / commit / push commands after changes
